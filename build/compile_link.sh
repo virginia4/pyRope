@@ -13,7 +13,16 @@ static_files_3=/Users/vapostolop/Desktop/ROPE/rope/build/diagnose/vagabond/c4x/l
 static_gemmi=/Users/vapostolop/Desktop/ROPE/gemmi/libgemmi_cpp.a
 static_fttw=/usr/local/lib/libfftw3f.a
 
-g++ -c -std=c++14 -fpic $PROJECT_DIR/src/module.cpp -I $include -I $numpy_inc -I $lib_rope -I $source_rope -o $PROJECT_DIR/build/module.o
+g++ -c -std=c++14 -fpic $PROJECT_DIR/src/moduleAtom.cpp -I $include -I $numpy_inc -I $lib_rope -I $source_rope -o $PROJECT_DIR/build/moduleAtom.o
+g++ -c -std=c++14 -fpic $PROJECT_DIR/src/moduleEnv.cpp -I $include -I $numpy_inc -I $lib_rope -I $source_rope -o $PROJECT_DIR/build/moduleEnv.o
 #g++ -shared -undefined dynamic_lookup module.o -o module.so -L $lib $link
 
-clang -bundle -undefined dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk $static_fttw $static_files_1 $static_files_2 $static_files_3 $static_gemmi $PROJECT_DIR/build/module.o -o $PROJECT_DIR/build/module.so
+clang -bundle -undefined dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk $static_fttw $static_files_1 $static_files_2 $static_files_3 $static_gemmi $PROJECT_DIR/build/moduleAtom.o -o $PROJECT_DIR/build/moduleAtom.so
+clang -bundle -undefined dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk $static_fttw $static_files_1 $static_files_2 $static_files_3 $static_gemmi $PROJECT_DIR/build/moduleEnv.o -o $PROJECT_DIR/build/moduleEnv.so
+
+
+
+
+
+
+

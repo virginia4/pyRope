@@ -8,29 +8,34 @@ module_dir = os.path.abspath('/Users/vapostolop/Desktop/pyRoPE/build')
 sys.path.append(module_dir)
 
 # Now you can import functions from module.so
-from module import greet, get_one_atom_position, get_atom_positions, fish_positions
+import moduleAtom as ma
+import moduleEnv as menv
 
 def main():
-	kk = greet()
+
+	# open_json(name_of_file);
+	# mm = model_manager();
+
+	kk = ma.greet()
 	print(kk)
+	# Create an AtomObject
+	atom = ma.create_atom()
+	position = ma.get_one_atom_position(atom)
+	print(position)
+	connected_atom = ma.create_atom()
+	# connected_atom = module.get_connected_atoms(atom, 0)
+	# print(connected_atom)
+	# isatom = module.is_connected_atom(atom, connected_atom)
+	ma.set_derived_position(atom, position)
+	print(type(atom))
+	ma.get_atom_name(atom)
+	ma.get_atom_num(atom)
+	ma.get_desc(atom)
+	ma.get_bond_length(atom)
+	menv.load_env("rope_demo.json")
+	model_manager = menv.get_model_manager()
+	print(type(model_manager))
 
-	positions = get_atom_positions()
-	print("Atom Position:", positions)
-
-	position = get_one_atom_position()
-	print("One atom position:", position)
-
-	withPos = fish_positions()
-	if withPos:
-		samples = withPos['samples']
-		ave = withPos['ave']
-		target = withPos['target']
-		colour = withPos['colour']
-
-		print("WithPos Samples:", samples)
-		print("WithPos Ave:", ave)
-		print("WithPos Target:", target)
-		print("WithPos Colour:", colour)
 
 
 if __name__ == "__main__":

@@ -3,18 +3,25 @@
 #include <vector>
 #include <string>
 #include <vagabond/core/Atom.h>
-#include "module.h"
+#include "atomModule.h"
 
 
 PyMethodDef methods[] = 
 {
     {"greet", greet, METH_VARARGS, "terrible documentation"},
-    {"get_atom_positions", getAtomPositions, METH_NOARGS, "Get atom position"},
-    {"get_one_atom_position", getOneAtomPosition, METH_NOARGS, "Get one atom position"},
-    {"fish_positions", fishPositions, METH_NOARGS, "Fish positions"},
+    {"create_atom", createAtomObject, METH_NOARGS, "Create an atom object"},
+    {"get_one_atom_position", getOneAtomPosition, METH_O, "Get one atom position"},
+    {"get_connected_atoms", getConnectedAtom, METH_VARARGS, "Get connectedAtom"},
+    {"set_derived_position", setDerivedPosition,  METH_VARARGS, "Set derived position"},
+    {"is_connected_atom", getIsConnectedAtom, METH_VARARGS, "Check if there is a connected atom"},
+    {"get_atom_name", getAtomName, METH_VARARGS, "Get the name of atom position"},
+    {"get_atom_num", getAtomNum, METH_VARARGS, "Get the number of atom position"},
+    {"get_desc", getDesc, METH_VARARGS, "Get the desc"},
+    {"get_bond_length", getBondLengthCount, METH_VARARGS, "Get bond length"},
     {NULL, NULL, 0, NULL}
 };
 
+// Initiallisations and required methods
 struct PyModuleDef module_def = 
 {
     PyModuleDef_HEAD_INIT,
@@ -26,7 +33,7 @@ struct PyModuleDef module_def =
 
 PyMODINIT_FUNC PyInit_module(void)
 {
-	return PyModule_Create(&module_def);
+	// return PyModule_Create(&module_def);
 
 	PyObject *m = PyModule_Create(&module_def);
 
@@ -43,114 +50,205 @@ PyMODINIT_FUNC helen_module_py_init(PyObject *module)
     return module;
 }
 
-
+// Wrapping Atom methods
 PyObject* greet(PyObject* self, PyObject * args)
 {
     return Py_BuildValue("s", "Hello world");
 }
 
+PyObject* createAtomObject(PyObject* self, PyObject* args)
+{
+ 
+    Atom* atom = new Atom(); // not sure about this line
+    std::cout << "Before packing: " << atom << std::endl;
+    //PyObject* atomPointer = Py_BuildValue("O&", atom);
+    PyObject* atomPointer = PyCapsule_New(atom, nullptr, nullptr);
+
+
+    return atomPointer;
+
+}
+
 PyObject* getOneAtomPosition(PyObject* self, PyObject* args)
 {
-    Atom* atom = new Atom();
-    std::string kk = "testAtom";
-    atom->setAtomName(kk);
+    void* val = PyCapsule_GetPointer(args, NULL);
+    Atom *atom = static_cast<Atom *>(val);
+    std::cout << "After packing: " << atom << std::endl;
+    glm::vec3 position = atom->derivedPosition();
+    PyObject* positionTuple = Py_BuildValue("(fff)", position.x, position.y, position.z);
 
-    glm::vec3 position;
-    if (atom->fishPosition(&position))
-    {
-        // Return a tuple containing x, y, z
-        return Py_BuildValue("(fff)", position.x, position.y, position.z);
-    }
-    else
-    {
-        // Return an error or default value
-        PyErr_SetString(PyExc_RuntimeError, "Failed to get atom position");
-        return NULL;
-    }
+    return positionTuple;
 }
 
-PyObject* createWithPosObject(const WithPos& withPos)
+PyObject* setDerivedPosition(PyObject* self, PyObject* args)
 {
-    // Create a Python dictionary to represent WithPos
-    PyObject* withPosObj = PyDict_New();
+    PyObject* atomCapsule;
+    PyObject* positionTuple;
+    // passing by as argument a positionTuple from python and need to convert the type to glm::vec3 &pos 
 
-    // Check if the creation was successful
-    if (withPosObj == NULL)
-    {
+    // parsing the two arguments: atom and position tuple:
+    std::cout << "Parse arguments" << std::endl;
+    if (!PyArg_ParseTuple(args, "OO", &atomCapsule, &positionTuple)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
         return NULL;
     }
 
-    // Create a Python list to represent samples
-    PyObject* samplesList = PyList_New(withPos.samples.size());
-    for (size_t i = 0; i < withPos.samples.size(); ++i)
-    {
-        PyList_SET_ITEM(samplesList, i, Py_BuildValue("(fff)", withPos.samples[i].x, withPos.samples[i].y, withPos.samples[i].z));
+    void* val = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom *atom = static_cast<Atom *>(val);
+
+    // Extract elements from the position tuple
+    float x, y, z;
+    if (!PyArg_ParseTuple(positionTuple, "fff", &x, &y, &z)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid position tuple");
+        return NULL;
     }
+    glm::vec3 position(x, y, z);
+    atom->setDerivedPosition(position);
+     // Print the values for verification
+    std::cout << "x: " << x << ", y: " << y << ", z: " << z << std::endl;
 
-    PyDict_SetItemString(withPosObj, "samples", samplesList);
-    PyDict_SetItemString(withPosObj, "ave", Py_BuildValue("(fff)", withPos.ave.x, withPos.ave.y, withPos.ave.z));
-    PyDict_SetItemString(withPosObj, "target", Py_BuildValue("(fff)", withPos.target.x, withPos.target.y, withPos.target.z));
-    PyDict_SetItemString(withPosObj, "colour", Py_BuildValue("f", withPos.colour));
-
-    return withPosObj;
+    Py_RETURN_NONE;
 }
 
-PyObject* fishPositions(PyObject* self, PyObject* args)
+
+
+PyObject* getConnectedAtom(PyObject* self, PyObject* args)
 {
-    Atom* atom = new Atom(); // not sure about this line
+    PyObject* atomCapsule;
+    int i;
 
-    if (!atom) {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid Atom object");
+    std::cout << "Parse arguments" << std::endl;
+    if (!PyArg_ParseTuple(args, "Oi", &atomCapsule, &i)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
         return NULL;
     }
 
-    WithPos wp;
-    if (atom->fishPositions(&wp))
-    {
-        PyObject* withPosObj = createWithPosObject(wp);
-        return withPosObj;
-    }
-    else
-    {
-        // Return an error or default value
-        PyErr_SetString(PyExc_RuntimeError, "Failed to get atom positions");
+    std::cout<< "Connetion atom number: " <<std::endl;
+    std::cout<< i <<std::endl;
+    std::cout << "Retrieve atom object from the capsule" << std::endl;
+    void* val = PyCapsule_GetPointer(atomCapsule, NULL);
+    std::cout<< "Flag 1" <<std::endl;
+    if (!val) {
+        PyErr_SetString(PyExc_TypeError, "Invalid capsule");
         return NULL;
     }
+    Atom *atom = static_cast<Atom *>(val);
+    std::cout<< "Flag 2" << atom << std::endl;
+    size_t count = atom->bondLengthCount(); // this function is found in HasBondstraints.h
+    std::cout<< "Flag 3 " << count <<std::endl;
+    if (i >= count) {
+        PyErr_SetString(PyExc_RuntimeError, "Count small than requested number");
+        return NULL;
+    }
+    Atom* connectedAtom = atom->connectedAtom(i);
+    PyObject* result = PyCapsule_New(connectedAtom, NULL, NULL);
+    if (!result) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create capsule");
+        return NULL;
+    }
+
+    return result;
+
 }
 
-// -------------------------------- To delete:
 
-PyObject* getAtomPositions(PyObject* self, PyObject* args)
+PyObject* getIsConnectedAtom(PyObject* self, PyObject* args)
 {
-    PyObject* positionsList = PyList_New(0);
+    PyObject* atomCapsule;
+    PyObject* connectedAtomCapsule;
 
-    if (positionsList == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to create positions list");
+    if (!PyArg_ParseTuple(args, "OO", &atomCapsule, &connectedAtomCapsule)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
         return NULL;
     }
-    std::vector<Atom> atoms;
-    for (Atom& atom : atoms) {
-        AtomWrapper atomWrapper(atom);
 
-        glm::vec3 position;
-        if (atomWrapper.atom.fishPosition(&position)) {
-            PyObject* positionTuple = Py_BuildValue("(fff)", position.x, position.y, position.z);
+    void* atomVal = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom* atom = static_cast<Atom*>(atomVal);
 
-            if (positionTuple != NULL) {
-                PyList_Append(positionsList, positionTuple);
-                Py_DECREF(positionTuple);
-            } else {
-                PyErr_SetString(PyExc_RuntimeError, "Failed to create position tuple");
-                Py_DECREF(positionsList);
-                return NULL;
-            }
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, "Failed to get atom position");
-            Py_DECREF(positionsList);
-            return NULL;
-        }
+    void* connectedAtomVal = PyCapsule_GetPointer(connectedAtomCapsule, NULL);
+    Atom* connectedAtom = static_cast<Atom*>(connectedAtomVal);
+
+    bool result = atom->isConnectedToAtom(connectedAtom);
+    return PyBool_FromLong(result);
+}
+
+
+PyObject* getAtomName(PyObject* self, PyObject* args)
+{
+    PyObject* atomCapsule;
+    if (!PyArg_ParseTuple(args, "O", &atomCapsule)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
     }
 
-    // Return the positions list
-    return positionsList;
+    void* atomVal = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom* atom = static_cast<Atom*>(atomVal);
+
+    const std::string& atomName = atom->atomName();
+    std::cout << "Getting atom name: " << atomName << std::endl;
+
+    // You can return the atom name as a Python string if needed
+    return Py_BuildValue("s", atomName.c_str());
 }
+
+PyObject* getAtomNum(PyObject* self, PyObject* args)
+{
+    PyObject* atomCapsule;
+    if (!PyArg_ParseTuple(args, "O", &atomCapsule)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
+    }
+
+    void* atomVal = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom* atom = static_cast<Atom*>(atomVal);
+
+    const int& atomNum = atom->atomNum();
+    std::cout << "Getting atom num: " << atomNum << std::endl;
+
+    // You can return the atom name as a Python string if needed
+    return Py_BuildValue("i", atomNum);
+}
+
+PyObject* getDesc(PyObject* self, PyObject* args)
+{
+    PyObject* atomCapsule;
+    if (!PyArg_ParseTuple(args, "O", &atomCapsule)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
+    }
+
+    void* atomVal = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom* atom = static_cast<Atom*>(atomVal);
+
+    const std::string& descChain= atom->desc();
+    std::cout << "Getting desc: " << descChain << std::endl;
+
+    // You can return the atom name as a Python string if needed
+    return Py_BuildValue("s", descChain.c_str());
+}
+
+PyObject* getBondLengthCount(PyObject* self, PyObject* args)
+{
+    PyObject* atomCapsule;
+    if (!PyArg_ParseTuple(args, "O", &atomCapsule)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+        return NULL;
+    }
+
+    void* atomVal = PyCapsule_GetPointer(atomCapsule, NULL);
+    Atom* atom = static_cast<Atom*>(atomVal);
+
+    const size_t bondLengths = atom->bondLengthCount();
+    std::cout << "Getting bond length count: " << bondLengths << std::endl;
+
+    return Py_BuildValue("n", bondLengths);
+}
+
+
+
+
+
+
+
+
+
